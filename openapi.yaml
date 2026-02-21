@@ -1,0 +1,128 @@
+openapi: 3.0.3
+info:
+  title: Vending Machine API
+  description: A strict contract for a standard vending machine backend.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+components:
+  securitySchemes:
+    AdminApiKey:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+
+  schemas:
+    Item:
+      type: object
+      required:
+        - id
+        - name
+        - price_cents
+        - quantity
+      properties:
+        id:
+          type: string
+          example: "A1"
+        name:
+          type: string
+          example: "Cola"
+        price_cents:
+          type: integer
+          description: Price in cents to avoid float precision issues.
+          example: 150
+        quantity:
+          type: integer
+          example: 5
+
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          example: "INSUFFICIENT_FUNDS"
+        message:
+          type: string
+          example: "Payment amount is less than the item price."
+
+paths:
+  /inventory:
+    get:
+      summary: Get all available items
+      parameters:
+        - in: header
+          name: X-Machine-Id
+          required: true
+          schema:
+            type: string
+          description: Unique identifier for the vending machine making the request.
+      responses:
+        '200':
+          description: Successful response with inventory list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '400':
+          description: Missing X-Machine-Id header.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vend:
+    post:
+      summary: Purchase an item
+      parameters:
+        - in: header
+          name: X-Machine-Id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - item_id
+                - payment_cents
+              properties:
+                item_id:
+                  type: string
+                  example: "A1"
+                payment_cents:
+                  type: integer
+                  example: 200
+      responses:
+        '200':
+          description: Item successfully vended.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vended_item_id:
+                    type: string
+                  change_returned_cents:
+                    type: integer
+        '400':
+          description: Insufficient funds or bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Item not found or out of stock.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
